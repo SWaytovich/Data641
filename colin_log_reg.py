@@ -11,7 +11,11 @@ from sklearn.model_selection import (
     StratifiedKFold, cross_val_score
 )
 from sklearn.linear_model import LogisticRegression 
-from sklearn.metrics import accuracy_score
+from sklearn import tree, ensemble, svm
+from sklearn.metrics import (
+    accuracy_score, precision_score, 
+    confusion_matrix
+)
 import spacy 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -38,12 +42,31 @@ x_train_feat_strings = convert_lines_to_feature_strings(x_train, stop_words, \
 
 x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
     stop_words, whitespace_tokenizer)
+x_test_pp = training_vectorizer.transform(x_test).toarray()
+x_train_pp = x_features_train.toarray()
 
-x_test_pp = training_vectorizer.transform(x_test)
+test_mod = models.Sequential([
+    layers.Input(shape=(1,29646)), 
+    layers.Dense(10, activation='relu'), 
+    layers.Dense(30, activation='relu'), 
+    layers.Dense(25, activation='relu'), 
+    layers.Dense(1, activation='sigmoid')
+])
 
-mod = LogisticRegression(solver='liblinear')
-mod.fit(x_features_train, y_train)
+test_mod.compile(optimizer=optimizers.RMSprop(lr=0.01), 
+                loss='binary_crossentropy', 
+                metrics=['acc'])
 
-y_hat = mod.predict(x_test_pp)
+hist = test_mod.fit(x_train_pp, y_train, epochs=20)
+preds = np.round(test_mod.predict(x_test_pp).reshape(1984,))
+print(preds.shape)
+print(y_test.shape)
+print(preds)
+# prin
+print(accuracy_score(y_test, preds))
 
-print(accuracy_score(y_test, y_hat))
+# mod = LogisticRegression(solver='liblinear')
+# mod.fit(x_train_pp, y_train)
+# y_hat = mod.predict(x_test_pp)
+
+# print(accuracy_score(y_test, y_hat))
