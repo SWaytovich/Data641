@@ -45,8 +45,29 @@ x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_
 x_test_pp = training_vectorizer.transform(x_test).toarray()
 x_train_pp = x_features_train.toarray()
 
-mod = LogisticRegression(solver='liblinear')
-mod.fit(x_train_pp, y_train)
-y_hat = mod.predict(x_test_pp)
+test_mod = models.Sequential([
+    layers.Input(shape=(1,29646)), 
+    layers.Dense(32, activation='relu'), 
+    layers.Dense(128, activation='relu'),
+    layers.Dropout(0.2),
+    layers.Dense(256, activation='relu'), 
+    layers.Dropout(0.2),
+    layers.Dense(1, activation='sigmoid')
+])
 
-print(accuracy_score(y_test, y_hat))
+metric = tf.keras.metrics.Precision()
+optim = optimizers.RMSprop(lr=0.001)
+test_mod.compile(optimizer='Nadam', 
+                loss='binary_crossentropy', 
+                metrics=[metric])
+
+hist = test_mod.fit(x_train_pp, y_train, epochs=30)
+preds = np.round(test_mod.predict(x_test_pp).reshape(1984,))
+
+print(accuracy_score(y_test, preds))
+print(precision_score(y_test, preds))
+# mod = LogisticRegression(solver='liblinear')
+# mod.fit(x_train_pp, y_train)
+# y_hat = mod.predict(x_test_pp)
+
+# print(accuracy_score(y_test, y_hat))
