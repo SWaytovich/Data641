@@ -32,6 +32,8 @@ df = pd.read_csv('../data/wcpr_mypersonality.csv', \
 
 df['Target'] = pd.Series(np.where(df['cNEU'] == 'y', 1, 0))
 
+stopwords_dec = True
+
 target = df['Target']
 status = df[['STATUS' ,'#AUTHID']]
 dist_users = df[['#AUTHID', 'Target']].drop_duplicates()
@@ -49,17 +51,53 @@ x_train_pp = np.array(x_train_feat['STATUS'])
 x_test_pp = np.array(x_test_feat['STATUS'])
 
 x_train_feat_strings = convert_lines_to_feature_strings(x_train_pp, stop_words, \
-    proc_words, remove_stopword_bigrams=True)
+    proc_words, remove_stopword_bigrams=stopwords_dec)
 x_test_feat_string = convert_lines_to_feature_strings(x_test_pp, stop_words, \
-    proc_words, remove_stopword_bigrams=True)
+    proc_words, remove_stopword_bigrams=stopwords_dec)
 
 x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
     stop_words, whitespace_tokenizer)
 x_test_transformed = training_vectorizer.transform(x_test_feat_string)
 
-mod = LogisticRegression(solver='liblinear')
-mod.fit(x_features_train, x_train_feat['Target'])
-y_hat = pd.Series(mod.predict(x_test_transformed))
+x_train_mod = x_features_train.toarray()
+x_test_mod = x_test_transformed.toarray()
+y_train_mod = np.array(x_train_feat['Target'])
+
+
+if stopwords_dec == True:
+    input_size = 26811
+else:
+    input_size = 69353
+# print(x_train_pp)
+
+test_mod = models.Sequential([
+    layers.Input(shape=(1,input_size)), 
+    layers.Dense(32, activation='relu'), 
+    layers.Dense(128, activation='relu'),
+    layers.Dropout(0.2),
+    layers.Dense(256, activation='relu'), 
+    layers.Dropout(0.2),
+    layers.Dense(1, activation='sigmoid')
+])
+
+metric = tf.keras.metrics.Precision()
+optim = optimizers.RMSprop(lr=0.001)
+test_mod.compile(optimizer='Nadam', 
+                loss='binary_crossentropy', 
+                metrics=[metric])
+
+hist = test_mod.fit(x_train_mod, y_train_mod, epochs=3)
+y_hat = pd.Series(np.round(test_mod.predict(x_test_mod).reshape(2825,)))
+# y_hat = np.round(test_mod.predict(x_test_mod).reshape(1984,))
+
+
+
+# # print(accuracy_score(y_test, preds))
+# # print(precision_score(y_test, preds))
+
+# # mod = LogisticRegression(solver='liblinear')
+# # mod.fit(x_features_train, x_train_feat['Target'])
+# # y_hat = pd.Series(mod.predict(x_test_transformed))
 
 x_test_feat['Preds'] = y_hat
 
@@ -76,29 +114,3 @@ joined_preds['Final_pred'] = pd.Series(\
 
 print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
 
-
-# yes_stopwords = 69353
-# # no_stopwords = 
-# # print(x_train_pp)
-
-# test_mod = models.Sequential([
-#     layers.Input(shape=(1,69353)), 
-#     layers.Dense(32, activation='relu'), 
-#     layers.Dense(128, activation='relu'),
-#     layers.Dropout(0.2),
-#     layers.Dense(256, activation='relu'), 
-#     layers.Dropout(0.2),
-#     layers.Dense(1, activation='sigmoid')
-# ])
-
-# metric = tf.keras.metrics.Precision()
-# optim = optimizers.RMSprop(lr=0.001)
-# test_mod.compile(optimizer='Nadam', 
-#                 loss='binary_crossentropy', 
-#                 metrics=[metric])
-
-# hist = test_mod.fit(x_train_pp, y_train, epochs=10)
-# preds = np.round(test_mod.predict(x_test_pp).reshape(1984,))
-
-# print(accuracy_score(y_test, preds))
-# print(precision_score(y_test, preds))
