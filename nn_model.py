@@ -31,43 +31,74 @@ df = pd.read_csv('../data/wcpr_mypersonality.csv', \
     encoding="ISO-8859-1")
 
 df['Target'] = pd.Series(np.where(df['cNEU'] == 'y', 1, 0))
+
 target = df['Target']
-status = df['STATUS']
+status = df[['STATUS' ,'#AUTHID']]
+dist_users = df[['#AUTHID', 'Target']].drop_duplicates()
 
-x_train, x_test, y_train, y_test = train_test_split(status, target,\
-    test_size=0.2, random_state=4)
+x_train, x_test, y_train, y_test = train_test_split(dist_users['#AUTHID'], dist_users['Target'],\
+    test_size=0.3, random_state=4, stratify=dist_users['Target'])
 
-x_train_feat_strings = convert_lines_to_feature_strings(x_train, stop_words, \
+train_data = pd.concat([x_train, y_train], axis=1)
+test_data = pd.concat([x_test, y_test], axis=1).sort_values(by=['#AUTHID'])
+
+x_train_feat = pd.merge(status, train_data, on='#AUTHID',how='inner')
+x_test_feat = pd.merge(status, test_data, on='#AUTHID',how='inner')
+
+x_train_pp = np.array(x_train_feat['STATUS'])
+x_test_pp = np.array(x_test_feat['STATUS'])
+
+x_train_feat_strings = convert_lines_to_feature_strings(x_train_pp, stop_words, \
+    proc_words, remove_stopword_bigrams=True)
+x_test_feat_string = convert_lines_to_feature_strings(x_test_pp, stop_words, \
     proc_words, remove_stopword_bigrams=True)
 
 x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
     stop_words, whitespace_tokenizer)
-x_test_pp = training_vectorizer.transform(x_test).toarray()
-x_train_pp = x_features_train.toarray()
+x_test_transformed = training_vectorizer.transform(x_test_feat_string)
 
-test_mod = models.Sequential([
-    layers.Input(shape=(1,29646)), 
-    layers.Dense(32, activation='relu'), 
-    layers.Dense(128, activation='relu'),
-    layers.Dropout(0.2),
-    layers.Dense(256, activation='relu'), 
-    layers.Dropout(0.2),
-    layers.Dense(1, activation='sigmoid')
-])
+mod = LogisticRegression(solver='liblinear')
+mod.fit(x_features_train, x_train_feat['Target'])
+y_hat = pd.Series(mod.predict(x_test_transformed))
 
-metric = tf.keras.metrics.Precision()
-optim = optimizers.RMSprop(lr=0.001)
-test_mod.compile(optimizer='Nadam', 
-                loss='binary_crossentropy', 
-                metrics=[metric])
+x_test_feat['Preds'] = y_hat
 
-hist = test_mod.fit(x_train_pp, y_train, epochs=30)
-preds = np.round(test_mod.predict(x_test_pp).reshape(1984,))
+grouped_preds = x_test_feat.groupby('#AUTHID')['Preds'].sum().reset_index().sort_values(by=['#AUTHID'])
+grouped_counts = x_test_feat.groupby('#AUTHID')['Preds'].count().reset_index().sort_values(by=['#AUTHID'])
 
-print(accuracy_score(y_test, preds))
-print(precision_score(y_test, preds))
-# mod = LogisticRegression(solver='liblinear')
-# mod.fit(x_train_pp, y_train)
-# y_hat = mod.predict(x_test_pp)
+joined_preds = pd.merge(grouped_preds, grouped_counts, \
+    suffixes=('_preds', '_counts'),on='#AUTHID', how='inner')
 
-# print(accuracy_score(y_test, y_hat))
+pred_thresh = 0.65
+
+joined_preds['Final_pred'] = pd.Series(\
+    np.where((joined_preds['Preds_preds'] / joined_preds['Preds_counts']) >= pred_thresh, 1, 0))
+
+print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
+
+
+# yes_stopwords = 69353
+# # no_stopwords = 
+# # print(x_train_pp)
+
+# test_mod = models.Sequential([
+#     layers.Input(shape=(1,69353)), 
+#     layers.Dense(32, activation='relu'), 
+#     layers.Dense(128, activation='relu'),
+#     layers.Dropout(0.2),
+#     layers.Dense(256, activation='relu'), 
+#     layers.Dropout(0.2),
+#     layers.Dense(1, activation='sigmoid')
+# ])
+
+# metric = tf.keras.metrics.Precision()
+# optim = optimizers.RMSprop(lr=0.001)
+# test_mod.compile(optimizer='Nadam', 
+#                 loss='binary_crossentropy', 
+#                 metrics=[metric])
+
+# hist = test_mod.fit(x_train_pp, y_train, epochs=10)
+# preds = np.round(test_mod.predict(x_test_pp).reshape(1984,))
+
+# print(accuracy_score(y_test, preds))
+# print(precision_score(y_test, preds))
