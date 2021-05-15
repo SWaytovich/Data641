@@ -46,6 +46,9 @@ lower_func = lambda text: text.lower()
 df = pd.read_csv('../data/wcpr_mypersonality.csv', \
     encoding="ISO-8859-1")
 
+dt_clf = tree.DecisionTreeClassifier()
+svm_clf = svm.SVC(kernel='rbf')
+
 df['Target'] = pd.Series(np.where(df['cNEU'] == 'y', 1, 0))
 df['STATUS'] = df['STATUS'].map(remove_encoding_fuckers)
 df['STATUS'] = df['STATUS'].map(lower_func)
@@ -77,22 +80,4 @@ x_test_feat_string = convert_lines_to_feature_strings(x_test_pp, stop_words, \
 x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
     stop_words, whitespace_tokenizer)
 x_test_transformed = training_vectorizer.transform(x_test_feat_string)
-print(training_vectorizer.get_feature_names())
-# mod = LogisticRegression(solver='liblinear')
-# mod.fit(x_features_train, x_train_feat['Target'])
-# y_hat = pd.Series(mod.predict(x_test_transformed))
 
-# x_test_feat['Preds'] = y_hat
-
-# grouped_preds = x_test_feat.groupby('#AUTHID')['Preds'].sum().reset_index().sort_values(by=['#AUTHID'])
-# grouped_counts = x_test_feat.groupby('#AUTHID')['Preds'].count().reset_index().sort_values(by=['#AUTHID'])
-
-# joined_preds = pd.merge(grouped_preds, grouped_counts, \
-#     suffixes=('_preds', '_counts'),on='#AUTHID', how='inner')
-
-# pred_thresh = 0.75
-
-# joined_preds['Final_pred'] = pd.Series(\
-#     np.where((joined_preds['Preds_preds'] / joined_preds['Preds_counts']) >= pred_thresh, 1, 0))
-
-# print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
