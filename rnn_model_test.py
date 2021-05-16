@@ -18,7 +18,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn import tree, ensemble, svm
 from sklearn.metrics import (
     accuracy_score, precision_score, 
-    confusion_matrix
+    confusion_matrix, f1_score
 )
 import spacy
 import os, re, nltk
@@ -136,12 +136,12 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=2)
     rms = optimizers.RMSprop(lr=1e-4)
     adam = optimizers.Adam(1e-4)
-    RNN_model.compile(optimizer=rms,
+    RNN_model.compile(optimizer='adam',
         loss='binary_crossentropy', metrics=['acc'])
-    RNN_model.fit(train_data_mod, train_labels, epochs=20, \
+    RNN_model.fit(train_data_mod, train_labels, epochs=5, \
         steps_per_epoch=100, callbacks=[callback])
     out_shape = RNN_model.predict(test_data_mod)
-    print(out_shape)
+    # print(out_shape)
     y_hat = pd.Series(np.round(RNN_model.predict(test_data_mod).reshape(out_shape.shape[0],)))
     print(accuracy_score(test_labels, y_hat))
     x_test_feat['Preds'] = y_hat
@@ -154,10 +154,13 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
 
     joined_preds['Final_pred'] = pd.Series(\
         np.where((joined_preds['Preds_preds'] / joined_preds['Preds_counts']) >= pred_thresh, 1, 0))
+    print(joined_preds)
+    print(test_data[['#AUTHID', 'Target']])
 
     print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
     print(precision_score(test_data['Target'], joined_preds['Final_pred']))
-
-model_run('../data/wcpr_mypersonality.csv', False, 0.3, 0.5)
+    print(f1_score(test_data['Target'], joined_preds['Final_pred']))
+    return joined_preds, test_data
+# model_run('../data/wcpr_mypersonality.csv', False, 0.3, 0.33)
 
     
