@@ -21,8 +21,18 @@ from sklearn.metrics import (
     confusion_matrix
 )
 import spacy
-import os, re
+import os, re, nltk
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+def remove_numbers(text):
+    pattern = r'[^a-zA-z.,!?/:;\"\'\s]' 
+    return re.sub(pattern, '', text)
+
+def get_stem(text):
+    stemmer = nltk.porter.PorterStemmer()
+    text = ' '.join([stemmer.stem(word) for word in text.split()])
+    return text
+
 def whitespace_tokenizer(line):
     return line.split()
 
@@ -62,7 +72,13 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     df['STATUS'] = df['STATUS'].map(lower_func)
     df['STATUS'] = df['STATUS'].map(remove_accents)
     df['STATUS'] = df['STATUS'].map(check_punc)
+    df['STATUS'] = df['STATUS'].map(remove_numbers)
+    df['STATUS'] = df['STATUS'].map(get_stem)
 
+
+    df['Status_Length'] = pd.Series([len(df['STATUS'][i].split()) for i in range(len(df))])
+    df = df[df['Status_Length'] > 3]
+    # print(df['Status_Length'].mean())
     target = df['Target']
     status = df[['STATUS' ,'#AUTHID']]
     dist_users = df[['#AUTHID', 'Target']].drop_duplicates()
@@ -79,7 +95,7 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     train_labels, test_labels = np.array(x_train_feat['Target']),  \
         np.array(x_test_feat['Target'])
 
-    tokenizer = Tokenizer(num_words=20000)
+    tokenizer = Tokenizer(num_words=40000)
     tokenizer.fit_on_texts(x_train_feat['STATUS'])
 
     train_seq = tokenizer.texts_to_sequences(x_train_feat['STATUS'])
@@ -89,23 +105,44 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     train_data_mod = pad_sequences(train_seq, maxlen=train_lens)
     test_data_mod = pad_sequences(test_seq, maxlen=train_lens)
 
-   
+    # x_train_pp = np.array(x_train_feat['STATUS'])
+    # x_test_pp = np.array(x_test_feat['STATUS'])
+
+    # x_train_feat_strings = convert_lines_to_feature_strings(x_train_pp, stop_words, \
+    #     proc_words, remove_stopword_bigrams=stopwords_dec, include_trigrams=False)
+    # x_test_feat_string = convert_lines_to_feature_strings(x_test_pp, stop_words, \
+    #     proc_words, remove_stopword_bigrams=stopwords_dec, include_trigrams=False)
+
+    # x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
+    #     stop_words, whitespace_tokenizer)
+    # x_test_transformed = training_vectorizer.transform(x_test_feat_string)
+
+    # x_train_mod = x_features_train.toarray().reshape(x_features_train.shape[0], 1, x_features_train.shape[1])
+    # x_test_mod = x_test_transformed.toarray().reshape(x_test_transformed.shape[0], 1, x_test_transformed.shape[1])
+    # y_train_mod = np.array(x_train_feat['Target'])
+    # print(x_features_train.shape)
+
     embedding_dim = 70
     RNN_model = models.Sequential([
-        layers.Embedding(20000, embedding_dim), 
-        layers.Bidirectional(layers.LSTM(128, return_sequences=True)), 
+        layers.Embedding(40000, embedding_dim), 
+        layers.Bidirectional(layers.LSTM(124, return_sequences=True)), 
         layers.Bidirectional(layers.LSTM(64)),
         layers.Dense(64, activation='relu'), 
-        layers.Dropout(0.5),
+        # layers.Dropout(0.2),
+        # layers.BatchNormalization(), 
         layers.Dense(1, activation='sigmoid')
     ])
 
+    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=2)
     rms = optimizers.RMSprop(lr=1e-4)
-    RNN_model.compile(optimizer=optimizers.Adam(1e-4),
+    adam = optimizers.Adam(1e-4)
+    RNN_model.compile(optimizer=rms,
         loss='binary_crossentropy', metrics=['acc'])
-    RNN_model.fit(train_data_mod, train_labels, epochs=10, steps_per_epoch=100)
-    print(RNN_model.predict(test_data_mod).shape)
-    y_hat = pd.Series(np.round(RNN_model.predict(test_data_mod).reshape(2825,)))
+    RNN_model.fit(train_data_mod, train_labels, epochs=20, \
+        steps_per_epoch=100, callbacks=[callback])
+    out_shape = RNN_model.predict(test_data_mod)
+    print(out_shape)
+    y_hat = pd.Series(np.round(RNN_model.predict(test_data_mod).reshape(out_shape.shape[0],)))
     print(accuracy_score(test_labels, y_hat))
     x_test_feat['Preds'] = y_hat
 
@@ -121,6 +158,6 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
     print(precision_score(test_data['Target'], joined_preds['Final_pred']))
 
-model_run('../data/wcpr_mypersonality.csv', True, 0.3, 0.6)
+model_run('../data/wcpr_mypersonality.csv', False, 0.3, 0.5)
 
     

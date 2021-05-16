@@ -23,6 +23,7 @@ import numpy as np
 
 # NLP imports
 from spacy.lang.en import English
+import spacy 
 
 
 def load_stopwords(filename):
@@ -115,7 +116,7 @@ def split_training_set(lines, labels, test_size=0.3, random_seed=42):
 # You can find documentation at https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html
 # and there's a nice, readable discussion at https://medium.com/swlh/understanding-count-vectorizer-5dd71530c1b
 #
-def convert_text_into_features(X, stopwords_arg, analyzefn="word", range=(1,2)):
+def convert_text_into_features(X, stopwords_arg, analyzefn="word", range=(1,3)):
     training_vectorizer = CountVectorizer(stop_words=stopwords_arg,
                                           analyzer=analyzefn,
                                           lowercase=True,
@@ -138,7 +139,7 @@ def convert_text_into_features(X, stopwords_arg, analyzefn="word", range=(1,2)):
 #            "Remy will eat it."]
 #   Output: ["remy 's dinner remy_'s 's_dinner",
 #            "remy eat"]
-def convert_lines_to_feature_strings(lines, stopwords, proc_words,remove_stopword_bigrams=True):
+def convert_lines_to_feature_strings(lines, stopwords, proc_words,remove_stopword_bigrams=True, include_trigrams=True):
 
     print(" Converting from raw text to unigram and bigram features")
     if remove_stopword_bigrams:
@@ -146,6 +147,7 @@ def convert_lines_to_feature_strings(lines, stopwords, proc_words,remove_stopwor
         
     print(" Initializing")
     nlp          = English(parser=False)
+    # nlp = spacy.load('en_core_web_sm')
     all_features = []
     print(" Iterating through documents extracting unigram and bigram features")
     for line in tqdm(lines):
@@ -153,17 +155,19 @@ def convert_lines_to_feature_strings(lines, stopwords, proc_words,remove_stopwor
         # Get spacy tokenization and normalize the tokens
         spacy_analysis    = nlp(line)
         spacy_tokens      = [token.orth_ for token in spacy_analysis]
+        # spacy_tokens      = [token.lemma_ for token in spacy_analysis]
+        # print(spacy_tokens)
         normalized_tokens = normalize_tokens(spacy_tokens)
 
         # Collect unigram tokens as features
         # Exclude unigrams that are stopwords or are punctuation strings (e.g. '.' or ',')
-        unigrams          = [token   for token in normalized_tokens
-                                if token not in stopwords and token not in string.punctuation]
-                                #  if token not in stopwords and token not in string.punctuation and token not in proc_words]
+        unigrams          = [token   for token in normalized_tokens]
+                                # if token not in stopwords and token not in string.punctuation]
+                                # if token not in stopwords and token not in string.punctuation and token not in proc_words]
 
         # Collect string bigram tokens as features
-        bigrams = []
-        bigram_tokens     = ["_".join(bigram) for bigram in bigrams]
+        # bigrams = []
+        # bigram_tokens     = ["_".join(bigram) for bigram in bigrams]
         bigrams           = ngrams(normalized_tokens, 2) 
         bigrams           = filter_punctuation_bigrams(bigrams)
         if remove_stopword_bigrams:
@@ -171,14 +175,25 @@ def convert_lines_to_feature_strings(lines, stopwords, proc_words,remove_stopwor
             # bigrams = filter_stopword_bigrams(bigrams, proc_words)
         bigram_tokens = ["_".join(bigram) for bigram in bigrams]
 
+        # Collect string trigram tokens as features 
+        # trigrams = []
+        # trigram_tokens     = ["_".join(trigram) for trigram in trigrams]
+        trigrams           = ngrams(normalized_tokens, 3) 
+        trigrams           = filter_punctuation_bigrams(trigrams)
+        if remove_stopword_bigrams:
+            trigrams = filter_stopword_bigrams(trigrams, stopwords)
+            # trigrams = filter_stopword_bigrams(trigrams, proc_words)
+        trigram_tokens = ["_".join(trigram) for trigram in trigrams]
         # Conjoin the feature lists and turn into a space-separated string of features.
         # E.g. if unigrams is ['coffee', 'cup'] and bigrams is ['coffee_cup', 'white_house']
         # then feature_string should be 'coffee cup coffee_cup white_house'
-
+        if include_trigrams == True:
         # TO DO: replace this line with your code
-        feature_string = " ".join(token for token in unigrams) + " " \
-            + " ".join(bigram for bigram in bigram_tokens)
-
+            feature_string = " ".join(token for token in unigrams) + " " \
+                + " ".join(bigram for bigram in bigram_tokens) + " ".join(trigram for trigram in trigram_tokens)
+        else:
+            feature_string = " ".join(token for token in unigrams) + " " \
+            + " ".join(bigram for bigram in bigram_tokens) 
         # Add this feature string to the output
         all_features.append(feature_string)
 

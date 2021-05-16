@@ -48,6 +48,8 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     df['STATUS'] = df['STATUS'].str.replace('\x92', "'")
     df['STATUS'] = df['STATUS'].str.replace('\x94', '"')
     df['STATUS'] = df['STATUS'].str.replace('\x93', '"')
+    df['Status_Length'] = pd.Series([len(df['STATUS'][i].split()) for i in range(len(df))])
+    df = df[df['Status_Length'] > 5]
 
     target = df['Target']
     status = df[['STATUS' ,'#AUTHID']]
@@ -66,9 +68,9 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     x_test_pp = np.array(x_test_feat['STATUS'])
 
     x_train_feat_strings = convert_lines_to_feature_strings(x_train_pp, stop_words, \
-        proc_words, remove_stopword_bigrams=stopwords_dec)
+        proc_words, remove_stopword_bigrams=stopwords_dec, include_trigrams=True)
     x_test_feat_string = convert_lines_to_feature_strings(x_test_pp, stop_words, \
-        proc_words, remove_stopword_bigrams=stopwords_dec)
+        proc_words, remove_stopword_bigrams=stopwords_dec, include_trigrams=True)
 
     x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
         stop_words, whitespace_tokenizer)
@@ -85,34 +87,37 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
         input_size = 62690
 
     test_mod = models.Sequential([
-        layers.Input(shape=(1,input_size)), 
+        layers.Input(shape=(x_train_mod.shape[1],)), 
         layers.Dense(32, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01)), 
-        layers.Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01)),
-        layers.Dropout(0.2),
+        layers.Dense(64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.01)),
+        layers.Dropout(0.5),
         layers.Dense(1, activation='sigmoid')
     ])
 
     metric = tf.keras.metrics.Precision()
     optim = optimizers.RMSprop(lr=0.0001)
-    test_mod.compile(optimizer=optim, 
-                    loss='categorical_crossentropy', 
+    test_mod.compile(optimizer='adam', 
+                    loss='binary_crossentropy', 
                     metrics=['acc'])
-
-    # hist = test_mod.fit(x_train_mod, y_train_mod, epochs=40, steps_per_epoch=100)
+    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+    hist = test_mod.fit(x_train_mod, y_train_mod, epochs=30, steps_per_epoch=100, callbacks=[callback])
+    out_shape = test_mod.predict(x_test_mod).shape
+    y_hat = pd.Series(np.round(test_mod.predict(x_test_mod).reshape(out_shape[0],)))
+    # y_hat = test_mod.predict(x_test_mod).reshape(out_shape[0],)
     # y_hat = pd.Series(np.round(test_mod.predict(x_test_mod).reshape(2825,)))
 
-    # x_test_feat['Preds'] = y_hat
+    x_test_feat['Preds'] = y_hat
 
-    # grouped_preds = x_test_feat.groupby('#AUTHID')['Preds'].sum().reset_index().sort_values(by=['#AUTHID'])
-    # grouped_counts = x_test_feat.groupby('#AUTHID')['Preds'].count().reset_index().sort_values(by=['#AUTHID'])
+    grouped_preds = x_test_feat.groupby('#AUTHID')['Preds'].sum().reset_index().sort_values(by=['#AUTHID'])
+    grouped_counts = x_test_feat.groupby('#AUTHID')['Preds'].count().reset_index().sort_values(by=['#AUTHID'])
 
-    # joined_preds = pd.merge(grouped_preds, grouped_counts, \
-    #     suffixes=('_preds', '_counts'),on='#AUTHID', how='inner')
+    joined_preds = pd.merge(grouped_preds, grouped_counts, \
+        suffixes=('_preds', '_counts'),on='#AUTHID', how='inner')
+    # grouped_preds['Final_pred'] = pd.Series(np.round(y_hat))
+    joined_preds['Final_pred'] = pd.Series(\
+        np.where((joined_preds['Preds_preds'] / joined_preds['Preds_counts']) >= pred_thresh, 1, 0))
 
-    # joined_preds['Final_pred'] = pd.Series(\
-    #     np.where((joined_preds['Preds_preds'] / joined_preds['Preds_counts']) >= pred_thresh, 1, 0))
-
-    # print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
+    print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
     return x_train_mod
 
-# model_run('../data/wcpr_mypersonality.csv', True, 0.3, 0.7)
+model_run('../data/wcpr_mypersonality.csv', True, 0.3, 0.7)
