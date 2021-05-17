@@ -1,3 +1,9 @@
+'''
+To run this code and the other code like it that were submitted, the final_proj_funcs program will need to be in the same folder
+and then this code just needs to be exceuted. 
+The data file location can be edited below when the funciton is called 
+'''
+
 import pandas as pd 
 import numpy as np 
 from final_proj_funcs import *

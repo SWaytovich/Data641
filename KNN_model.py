@@ -1,5 +1,13 @@
+'''
+To run this code and the other code like it that were submitted, the final_proj_funcs program will need to be in the same folder
+and then this code just needs to be exceuted. 
+The data file location can be edited below when the funciton is called 
+'''
+
 import pandas as pd 
 import numpy as np 
+
+# Important Functions used for the Trigrams feature computation
 from final_proj_funcs import *
 # import tensorflow as tf 
 # from tensorflow.keras import (
@@ -21,6 +29,7 @@ import unicodedata, string
 import os
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+# Functions for cleaning up the text 
 def remove_numbers(text):
     pattern = r'[^a-zA-z.,!?/:;\"\'\s]' 
     return re.sub(pattern, '', text)
@@ -51,7 +60,7 @@ def check_punc(text):
             text = text.replace(punc, '')
     return text 
 
-
+# File names for the stopwords 
 stop_file = '../mallet_en_stoplist.txt'
 proc_file = '../new_legis_proc_jargon_stopwords.txt'
 
@@ -79,13 +88,16 @@ df['STATUS'] = df['STATUS'].map(check_punc)
 df['STATUS'] = df['STATUS'].map(remove_numbers)
 df['STATUS'] = df['STATUS'].map(get_stem)
 
+# Limiting the posts to greater than 4 words 
 df['Status_Length'] = pd.Series([len(df['STATUS'][i].split()) for i in range(len(df))])
 df = df[df['Status_Length'] > 4]
 
+# Getting distinct users and targets 
 target = df['Target']
 status = df[['STATUS' ,'#AUTHID']]
 dist_users = df[['#AUTHID', 'Target']].drop_duplicates().reset_index()
 
+# Combining the posts of a single user into one 
 feat_strings = []
 for indx in range(len(dist_users)):
     if len(df[df['#AUTHID'] == dist_users.iloc[indx]['#AUTHID']]) > 1:
@@ -97,6 +109,8 @@ dist_users['Full_Posts'] = pd.Series(feat_strings)
 
 kf_splits = StratifiedKFold(n_splits=5)
 
+# Boolean to either run with Train test split or KFold
+# Change the booelan below to use Kfold or not 
 use_kfold = True 
 
 if use_kfold == True:

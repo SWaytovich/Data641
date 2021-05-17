@@ -1,3 +1,9 @@
+'''
+To run this code and the other code like it that were submitted, the final_proj_funcs program will need to be in the same folder
+and then this code just needs to be exceuted. 
+The data file location can be edited below when the funciton is called 
+'''
+
 import pandas as pd 
 import numpy as np 
 import collections, string 
@@ -24,6 +30,7 @@ import spacy
 import os, re, nltk
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+# Functions for cleaning and processing the text 
 def remove_numbers(text):
     pattern = r'[^a-zA-z.,!?/:;\"\'\s]' 
     return re.sub(pattern, '', text)
@@ -61,6 +68,8 @@ proc_file = '../new_legis_proc_jargon_stopwords.txt'
 stop_words = load_stopwords(stop_file)
 proc_words = load_stopwords(proc_file)
 
+# Function for running the model
+# IS called below so this script just needs to be executed to run the model and view the metrics 
 def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     df = pd.read_csv(file_path, \
         encoding="ISO-8859-1")
@@ -95,12 +104,14 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     train_labels, test_labels = np.array(x_train_feat['Target']),  \
         np.array(x_test_feat['Target'])
 
+    # Alternate tokenizer other than the Spacy one used in other programs 
     tokenizer = Tokenizer(num_words=40000)
     tokenizer.fit_on_texts(x_train_feat['STATUS'])
 
     train_seq = tokenizer.texts_to_sequences(x_train_feat['STATUS'])
     test_seq = tokenizer.texts_to_sequences(x_test_feat['STATUS'])
 
+    # Pad the sequences so that the posts are equal length 
     train_lens = np.array([len(i) for i in train_seq]).max()
     train_data_mod = pad_sequences(train_seq, maxlen=train_lens)
     test_data_mod = pad_sequences(test_seq, maxlen=train_lens)
@@ -122,6 +133,7 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     # y_train_mod = np.array(x_train_feat['Target'])
     # print(x_features_train.shape)
 
+    # RNN model 
     embedding_dim = 70
     RNN_model = models.Sequential([
         layers.Embedding(40000, embedding_dim), 
@@ -133,20 +145,24 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
         layers.Dense(1, activation='sigmoid')
     ])
 
+    # Callback function and loss and optimizers 
     callback = tf.keras.callbacks.EarlyStopping(monitor='precision', patience=3)
     prec = tf.keras.metrics.Precision()
     rms = optimizers.RMSprop(lr=1e-4)
     adam = optimizers.Adam(1e-4)
+
     RNN_model.compile(optimizer='adam',
         loss='binary_crossentropy', metrics=[prec])
     RNN_model.fit(train_data_mod, train_labels, epochs=10, \
         steps_per_epoch=100, callbacks=[callback])
     out_shape = RNN_model.predict(test_data_mod)
-    # print(out_shape)
+
+    # Predictions 
     y_hat = pd.Series(np.round(RNN_model.predict(test_data_mod).reshape(out_shape.shape[0],)))
     print(accuracy_score(test_labels, y_hat))
     x_test_feat['Preds'] = y_hat
 
+    # Grouping by users 
     grouped_preds = x_test_feat.groupby('#AUTHID')['Preds'].sum().reset_index()
     grouped_counts = x_test_feat.groupby('#AUTHID')['Preds'].count().reset_index()
 
@@ -162,6 +178,7 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     print(precision_score(test_data['Target'], joined_preds['Final_pred']))
     print(f1_score(test_data['Target'], joined_preds['Final_pred']))
     # return joined_preds, test_data
+
 model_run('../data/wcpr_mypersonality.csv', False, 0.3, 0.6)
 
     
