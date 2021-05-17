@@ -38,7 +38,7 @@ def remove_accents(text):
         'ignore').decode('utf-8', 'ignore')
     return new_text
 
-def remove_encoding_fuckers(text):
+def remove_encoding(text):
     new_text = text.replace('\x92', "'")
     new_text = new_text.replace('\x94', '"')
     new_text = new_text.replace('\x93', '"')

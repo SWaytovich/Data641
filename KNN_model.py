@@ -47,7 +47,7 @@ def remove_accents(text):
         'ignore').decode('utf-8', 'ignore')
     return new_text
 
-def remove_encoding_fuckers(text):
+def remove_encoding(text):
     new_text = text.replace('\x92', "'")
     new_text = new_text.replace('\x94', '"')
     new_text = new_text.replace('\x93', '"')
@@ -81,7 +81,7 @@ knn = neighbors.KNeighborsClassifier(n_neighbors=17, weights='distance')
 # Creating a numerical Binary target column and 
 # normalizing the statuses 
 df['Target'] = pd.Series(np.where(df['cNEU'] == 'y', 1, 0))
-df['STATUS'] = df['STATUS'].map(remove_encoding_fuckers)
+df['STATUS'] = df['STATUS'].map(remove_encoding)
 df['STATUS'] = df['STATUS'].map(lower_func)
 df['STATUS'] = df['STATUS'].map(remove_accents)
 df['STATUS'] = df['STATUS'].map(check_punc)
