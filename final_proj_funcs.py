@@ -116,7 +116,7 @@ def split_training_set(lines, labels, test_size=0.3, random_seed=42):
 # You can find documentation at https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html
 # and there's a nice, readable discussion at https://medium.com/swlh/understanding-count-vectorizer-5dd71530c1b
 #
-def convert_text_into_features(X, stopwords_arg, analyzefn="word", range=(1,3)):
+def convert_text_into_features(X, stopwords_arg, analyzefn="word", range=(1,2)):
     training_vectorizer = CountVectorizer(stop_words=stopwords_arg,
                                           analyzer=analyzefn,
                                           lowercase=True,
@@ -161,13 +161,13 @@ def convert_lines_to_feature_strings(lines, stopwords, proc_words,remove_stopwor
 
         # Collect unigram tokens as features
         # Exclude unigrams that are stopwords or are punctuation strings (e.g. '.' or ',')
-        unigrams          = [token   for token in normalized_tokens]
-                                # if token not in stopwords and token not in string.punctuation]
+        unigrams          = [token   for token in normalized_tokens
+                                if token not in stopwords and token not in string.punctuation]
                                 # if token not in stopwords and token not in string.punctuation and token not in proc_words]
 
         # Collect string bigram tokens as features
-        # bigrams = []
-        # bigram_tokens     = ["_".join(bigram) for bigram in bigrams]
+        bigrams = []
+        bigram_tokens     = ["_".join(bigram) for bigram in bigrams]
         bigrams           = ngrams(normalized_tokens, 2) 
         bigrams           = filter_punctuation_bigrams(bigrams)
         if remove_stopword_bigrams:
@@ -198,6 +198,6 @@ def convert_lines_to_feature_strings(lines, stopwords, proc_words,remove_stopwor
         all_features.append(feature_string)
 
 
-    print(" Feature string for first document: '{}'".format(all_features[0]))
+    # print(" Feature string for first document: '{}'".format(all_features[0]))
         
     return all_features

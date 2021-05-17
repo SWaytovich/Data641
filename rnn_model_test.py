@@ -77,7 +77,7 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
 
 
     df['Status_Length'] = pd.Series([len(df['STATUS'][i].split()) for i in range(len(df))])
-    df = df[df['Status_Length'] > 3]
+    df = df[df['Status_Length'] > 4]
     # print(df['Status_Length'].mean())
     target = df['Target']
     status = df[['STATUS' ,'#AUTHID']]
@@ -133,12 +133,13 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
         layers.Dense(1, activation='sigmoid')
     ])
 
-    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=2)
+    callback = tf.keras.callbacks.EarlyStopping(monitor='precision', patience=3)
+    prec = tf.keras.metrics.Precision()
     rms = optimizers.RMSprop(lr=1e-4)
     adam = optimizers.Adam(1e-4)
     RNN_model.compile(optimizer='adam',
-        loss='binary_crossentropy', metrics=['acc'])
-    RNN_model.fit(train_data_mod, train_labels, epochs=5, \
+        loss='binary_crossentropy', metrics=[prec])
+    RNN_model.fit(train_data_mod, train_labels, epochs=10, \
         steps_per_epoch=100, callbacks=[callback])
     out_shape = RNN_model.predict(test_data_mod)
     # print(out_shape)
@@ -160,7 +161,7 @@ def model_run(file_path, stopwords_dec, test_size, pred_thresh):
     print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
     print(precision_score(test_data['Target'], joined_preds['Final_pred']))
     print(f1_score(test_data['Target'], joined_preds['Final_pred']))
-    return joined_preds, test_data
-# model_run('../data/wcpr_mypersonality.csv', False, 0.3, 0.33)
+    # return joined_preds, test_data
+model_run('../data/wcpr_mypersonality.csv', False, 0.3, 0.6)
 
     

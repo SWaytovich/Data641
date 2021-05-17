@@ -1,11 +1,11 @@
 import pandas as pd 
 import numpy as np 
 from final_proj_funcs import *
-import tensorflow as tf 
-from tensorflow.keras import (
-    models, losses, optimizers, 
-    layers, preprocessing, 
-)
+# import tensorflow as tf 
+# from tensorflow.keras import (
+#     models, losses, optimizers, 
+#     layers, preprocessing, 
+# )
 from sklearn.model_selection import (
     train_test_split, KFold, 
     StratifiedKFold, cross_val_score
@@ -14,12 +14,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn import tree, ensemble, svm
 from sklearn.metrics import (
     accuracy_score, precision_score, 
-    confusion_matrix
+    confusion_matrix, recall_score
 )
 import spacy, string 
 import unicodedata
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def whitespace_tokenizer(line):
     return line.split()
@@ -57,10 +57,10 @@ df['Target'] = pd.Series(np.where(df['cNEU'] == 'y', 1, 0))
 df['STATUS'] = df['STATUS'].map(remove_encoding_fuckers)
 df['STATUS'] = df['STATUS'].map(lower_func)
 df['STATUS'] = df['STATUS'].map(remove_accents)
-df['STATUS'] = df['STATUS'].map(check_punc)
+# df['STATUS'] = df['STATUS'].map(check_punc)
 
 df['Status_Length'] = pd.Series([len(df['STATUS'][i].split()) for i in range(len(df))])
-df = df[df['Status_Length'] > 3]
+df = df[df['Status_Length'] > 4]
 
 
 target = df['Target']
@@ -108,3 +108,5 @@ joined_preds['Final_pred'] = pd.Series(\
     np.where((joined_preds['Preds_preds'] / joined_preds['Preds_counts']) >= pred_thresh, 1, 0))
 
 print(accuracy_score(test_data['Target'], joined_preds['Final_pred']))
+print(precision_score(test_data['Target'], joined_preds['Final_pred']))
+print(recall_score(test_data['Target'], joined_preds['Final_pred']))

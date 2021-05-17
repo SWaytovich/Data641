@@ -1,11 +1,11 @@
 import pandas as pd 
 import numpy as np 
 from final_proj_funcs import *
-import tensorflow as tf 
-from tensorflow.keras import (
-    models, losses, optimizers, 
-    layers, preprocessing, 
-)
+# import tensorflow as tf 
+# from tensorflow.keras import (
+#     models, losses, optimizers, 
+#     layers, preprocessing, 
+# )
 from sklearn.model_selection import (
     train_test_split, KFold, 
     StratifiedKFold, cross_val_score
@@ -19,7 +19,7 @@ from sklearn.metrics import (
 import spacy, re, nltk 
 import unicodedata, string
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def remove_numbers(text):
     pattern = r'[^a-zA-z.,!?/:;\"\'\s]' 
@@ -65,7 +65,8 @@ df = pd.read_csv('../data/wcpr_mypersonality.csv', \
 
 # Classifier
 knn = neighbors.KNeighborsClassifier(n_neighbors=17, weights='distance')
-knn_cluster = cluster.KMeans(n_clusters=2)
+# mod = LogisticRegression(solver='liblinear')
+# knn_cluster = cluster.KMeans(n_clusters=2)
 # nb_clf = gaussian_process.GaussianProcessClassifier()
 
 # Creating a numerical Binary target column and 
@@ -94,26 +95,68 @@ for indx in range(len(dist_users)):
         feat_strings.append(df[df['#AUTHID'] == dist_users.iloc[indx]['#AUTHID']].iloc[0]['STATUS'])
 dist_users['Full_Posts'] = pd.Series(feat_strings)
 
-x_train, x_test, y_train, y_test = train_test_split(dist_users[['#AUTHID', 'Full_Posts']], dist_users['Target'],\
-    test_size=0.33, random_state=4, stratify=dist_users['Target'])
+kf_splits = StratifiedKFold(n_splits=5)
 
-x_train_pp = np.array(x_train['Full_Posts'])
-x_test_pp = np.array(x_test['Full_Posts'])
+use_kfold = False 
 
-x_train_feat_strings = convert_lines_to_feature_strings(x_train_pp, stop_words, \
-    proc_words, remove_stopword_bigrams=False, include_trigrams=True)
-x_test_feat_string = convert_lines_to_feature_strings(x_test_pp, stop_words, \
-    proc_words, remove_stopword_bigrams=False, include_trigrams=True)
+if use_kfold == True:
+        
+    acc_score = []
+    prec_score = []
+    f1_score = []
 
-x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
-    stop_words, whitespace_tokenizer)
-x_test_transformed = training_vectorizer.transform(x_test_feat_string)
+    for train_indx, test_indx in kf_splits.split(dist_users['Full_Posts'], dist_users['Target']):
+        x_train , x_test = dist_users.iloc[train_indx,:]['Full_Posts'],dist_users.iloc[test_indx,:]['Full_Posts']
+        y_train , y_test = dist_users.iloc[train_indx]['Target'] , dist_users.iloc[test_indx]['Target']
+        # print(train_indx)
+        # print(test_indx)
+        x_train_pp = np.array(x_train)
+        x_test_pp = np.array(x_test)
+        x_train_feat_strings = convert_lines_to_feature_strings(x_train_pp, stop_words, \
+            proc_words, remove_stopword_bigrams=False, include_trigrams=True)
+        x_test_feat_string = convert_lines_to_feature_strings(x_test_pp, stop_words, \
+            proc_words, remove_stopword_bigrams=False, include_trigrams=True)
 
-mod = LogisticRegression(solver='liblinear')
-knn.fit(x_features_train, y_train)
-preds = knn.predict(x_test_transformed)
+        x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
+            stop_words, whitespace_tokenizer)
+        x_test_transformed = training_vectorizer.transform(x_test_feat_string)
 
-print(precision_score(y_test, preds))
-print(accuracy_score(y_test, preds))
-print(f1_score(y_test, preds))
-print(recall_score(y_test, preds))
+        knn.fit(x_features_train, y_train)
+        print('got here')
+        preds = knn.predict(x_test_transformed)
+        acc_score.append(accuracy_score(y_test, preds))
+        prec_score.append(precision_score(y_test, preds))
+        f1_score.append(recall_score(y_test, preds))
+        # print(precision_score(y_test, preds))
+        # print(accuracy_score(y_test, preds))
+        # # print(f1_score(y_test, preds))
+        # print(recall_score(y_test, preds))
+        # print('\n')
+    print(np.mean(acc_score))
+    print(np.mean(prec_score))
+    print(np.mean(f1_score))
+    
+else: 
+    x_train, x_test, y_train, y_test = train_test_split(dist_users[['#AUTHID', 'Full_Posts']], dist_users['Target'],\
+        test_size=0.33, random_state=4, stratify=dist_users['Target'])
+
+    x_train_pp = np.array(x_train['Full_Posts'])
+    x_test_pp = np.array(x_test['Full_Posts'])
+
+    x_train_feat_strings = convert_lines_to_feature_strings(x_train_pp, stop_words, \
+        proc_words, remove_stopword_bigrams=False, include_trigrams=True)
+    x_test_feat_string = convert_lines_to_feature_strings(x_test_pp, stop_words, \
+        proc_words, remove_stopword_bigrams=False, include_trigrams=True)
+
+    x_features_train, training_vectorizer = convert_text_into_features(x_train_feat_strings, \
+        stop_words, whitespace_tokenizer)
+    x_test_transformed = training_vectorizer.transform(x_test_feat_string)
+
+    
+    knn.fit(x_features_train, y_train)
+    preds = knn.predict(x_test_transformed)
+
+    print(precision_score(y_test, preds))
+    print(accuracy_score(y_test, preds))
+    print(f1_score(y_test, preds))
+    print(recall_score(y_test, preds))
